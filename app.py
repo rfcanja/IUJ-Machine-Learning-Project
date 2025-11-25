@@ -2,15 +2,7 @@
 
 import os
 import streamlit as st
-import pandas as pd
-import numpy as np
 import joblib
-
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.ensemble import RandomForestClassifier
 
 st.set_page_config(
     page_title="Senior High School and Career Guidance Recommender",
@@ -18,122 +10,22 @@ st.set_page_config(
     layout="centered",
 )
 
-# ---------------------------------------------------------
-# 1. Helper: train model from training_dataset_5.csv
-# ---------------------------------------------------------
-
-def train_model_from_csv():
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    data_path = os.path.join(base_dir, "training_dataset_5.csv")
-
-    st.warning(
-        "Using fallback: training model from training_dataset_5.csv on this server. "
-        "This may take a few seconds."
-    )
-
-    df = pd.read_csv(data_path)
-
-    TARGET_COL = "strand"
-    ML_STRANDS = ["ABM", "HUMSS", "STEM", "GAS", "TVL"]
-    df = df[df[TARGET_COL].isin(ML_STRANDS)].copy()
-
-    numeric_features = [
-        "region_code",
-        "absence_days",
-        "extracurricular_activities",
-        "weekly_self_study_hours",
-        "math_score",
-        "history_score",
-        "physics_score",
-        "chemistry_score",
-        "biology_score",
-        "english_score",
-        "mapeh_score",
-        "stem_index",
-        "humss_index",
-        "arts_index",
-        "abm_index",
-        "apt_numerical_reasoning",
-        "apt_verbal_reasoning",
-        "apt_scientific_reasoning",
-        "grit_score",
-        "aspiration_strength",
-        "shs_stem_available",
-        "shs_abm_available",
-        "shs_humss_available",
-        "shs_tvl_available",
-        "ict_skill",
-    ]
-
-    categorical_features = [
-        "gender",
-        "varsity",
-        "career_aspiration",
-        "learning_style",
-        "preferred_work_type",
-    ]
-
-    # keep only existing columns
-    numeric_features = [c for c in numeric_features if c in df.columns]
-    categorical_features = [c for c in categorical_features if c in df.columns]
-
-    X = df[numeric_features + categorical_features]
-    y = df[TARGET_COL]
-
-    preprocess = ColumnTransformer(
-        transformers=[
-            ("num", StandardScaler(), numeric_features),
-            ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_features),
-        ]
-    )
-
-    clf = RandomForestClassifier(
-        n_estimators=400,
-        random_state=42,
-        class_weight="balanced",
-    )
-
-    pipe = Pipeline(
-        steps=[
-            ("preprocess", preprocess),
-            ("model", clf),
-        ]
-    )
-
-    # quick train; we don't even need a test split just to run the app
-    pipe.fit(X, y)
-
-    return pipe, numeric_features, categorical_features, TARGET_COL, ML_STRANDS
-
-# ---------------------------------------------------------
-# 2. Try to load pickle; if it fails, train from CSV
-# ---------------------------------------------------------
-
 @st.cache_resource
 def load_model():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(base_dir, "strand_model_best.pkl")
 
-    try:
-        data = joblib.load(model_path)
-        st.info("Loaded pre-trained model from strand_model_best.pkl")
-        return (
-            data["pipeline"],
-            data["numeric_features"],
-            data["categorical_features"],
-            data["target_col"],
-            data["ml_strands"],
-        )
-    except Exception as e:
-        st.warning(
-            f"Could not load pre-trained model from `{model_path}`.\n\n"
-            f"Reason: {e}\n\n"
-            "The app will instead train a fresh model from the dataset."
-        )
-        return train_model_from_csv()
+    data = joblib.load(model_path)
+
+    return (
+        data["pipeline"],
+        data["numeric_features"],
+        data["categorical_features"],
+        data["target_col"],
+        data["ml_strands"],
+    )
 
 pipeline, NUMERIC_FEATURES, CATEGORICAL_FEATURES, TARGET_COL, ML_STRANDS = load_model()
-
 
 # --- Helper mappings ---
 
